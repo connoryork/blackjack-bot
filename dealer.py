@@ -14,8 +14,8 @@ class Dealer(player.Player):
         """
         Adds a card to the hand only if the hand has a possible value of 16 or less
         """
-        if self.isPlaying:
-            for value in self.getHandValues():
+        if self.is_playing:
+            for value in self.get_hand_values():
                 if value <= 16:
                     super().hit()
                     return
