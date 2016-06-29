@@ -2,15 +2,21 @@
 
 import discord
 import logging
+import time
 
 logging.basicConfig(level=logging.DEBUG)
 
 
 class BlackJackBot(discord.Client):
+
+    intermission_time = 10
+
     def __init__(self):
         super().__init__()
         self.in_session = False # tells if current game is in progress
         self.in_intermission = False # tells if the add/remove players stage is in progress
+        self.players = list()
+        self.channel = None
 
     async def on_message(self, message):
 
@@ -25,10 +31,12 @@ class BlackJackBot(discord.Client):
         if message.author == self.user:
             return
         if not self.in_session: # if there is no current game, game commands should not be accessible
-            if message_content.startswith("!blackjack"):
-                await self.send_message(message.channel, 'test123')
-                await self.shutdown(message.channel)
-                #self.in_session = True
+            if message_content.startswith("!blackjack"): # start game command
+                await self.send_message(message.channel, "Blackjack game commencing. Type \"!join\" to join the match!")
+                self.in_session = True
+                self.in_intermission = True
+                self.channel = message.channel
+                await self.run_intermission()
                 # send message that the game is starting
                 # send message that users should type !join to join the game and !quit to leave the game
                 # load users based on who responded
@@ -43,8 +51,16 @@ class BlackJackBot(discord.Client):
                 # display end game
                     # display users and their current bank, and what they lost or gained
                 # repeat from beginning, if there are no users currently playing, the game will end.
-        else:
-            pass
+ #       else:
+#            if message_content.startswith("!join"):
+    async def run_intermission(self):
+        start_time = time.clock()
+        while time.clock() - start_time < self.intermission_time:
+            join_msg = await self.wait_for_message(timeout=10, content="!join")
+            if join_msg:
+                self.players.append(join_msg.author)
+                await self.send_message(self.channel, "@%s joined!" % join_msg.author.name)
+        await self.send_message(self.channel, self.players)
 
     async def shutdown(self, channel):
         await self.send_message(channel, "Bye!")

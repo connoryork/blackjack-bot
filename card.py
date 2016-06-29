@@ -2,6 +2,7 @@
 Class representing a card in the game of blackjack.
 Contains some other data members that help define a card.
 """
+
 from random import randint
 
 SUITES = ["Hearts", "Clubs", "Spades", "Diamonds"]
