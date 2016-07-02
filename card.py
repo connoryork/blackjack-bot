@@ -28,3 +28,12 @@ class Card:
             if self not in Card.deck:
                 Card.deck.add(self)
                 break
+
+    def __str__(self):
+        return self.name
+
+    def __ne__(self, other):
+        return self.name is not other.name
+
+    def __eq__(self, other):
+        return self.name is other.name

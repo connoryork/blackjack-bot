@@ -6,9 +6,12 @@ import card
 
 
 class Player:
-    def __init__(self):
+
+    def __init__(self, member):
+        self.member = member
         self.hand = list()
         self.is_playing = False
+        self.has_played = True
 
     def deal(self):
         """
@@ -27,15 +30,24 @@ class Player:
     def hit(self):
         """
         Adds a card to the players hand
+        :return: True if successfully hit, False if not
         """
-        if self.is_playing and not self.is_bust():
+        if self.is_playing and not self.has_played and not self.is_bust():
             self.hand.append(card.Card())
+            self.has_played = True
+            return True
+        return False
 
     def hold(self):
         """
         Holds the players current hand, preventing them from hitting more cards
+        :return: True if a successful hold, False if not
         """
-        self.is_playing = False
+        if self.is_playing and not self.has_played:
+            self.is_playing = False
+            self.has_played = True
+            return True
+        return False
 
     def get_hand_values(self):
         """
@@ -63,10 +75,7 @@ class Player:
         Determines if the current player is busted (has a hand value of over 21)
         :return: Boolean stating if busted
         """
-        busted = True
-        hand_values = self.get_hand_values()
-        for value in hand_values:
+        for value in self.get_hand_values():
             if value <= 21:
-                busted = False
-                break  # only need one possible hand to be below 21
-        return busted
+                return False
+        return True
