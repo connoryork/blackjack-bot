@@ -7,8 +7,11 @@ import player
 
 class Dealer(player.Player):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, user):
+        """
+        :param user: Discord bot client.user, which represents the connected client as a user similar to a person.
+        """
+        super().__init__(user)
         self.name = "Dealer"
 
     def hit(self):

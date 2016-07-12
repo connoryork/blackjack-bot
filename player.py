@@ -10,8 +10,8 @@ class Player:
     def __init__(self, member):
         self.member = member
         self.hand = list()
-        self.is_playing = False
-        self.has_played = True
+        self.is_playing = True # is currently playing in the game (Not holding or bust)
+        self.has_played = False # has currently played in the round (Has not hit, held, or busted)
 
     def deal(self):
         """
@@ -19,7 +19,7 @@ class Player:
         """
         self.is_playing = True
         for _ in range(2):
-            self.hand.append(card.Card())
+            self.hand.append(card.Card.draw_card())
 
     def reset_hand(self):
         """
@@ -27,13 +27,18 @@ class Player:
         """
         self.hand.clear()
 
+    def reset(self):
+        self.reset_hand()
+        self.is_playing = True
+        self.has_played = False
+
     def hit(self):
         """
         Adds a card to the players hand
         :return: True if successfully hit, False if not
         """
         if self.is_playing and not self.has_played and not self.is_bust():
-            self.hand.append(card.Card())
+            self.hand.append(card.Card.draw_card())
             self.has_played = True
             return True
         return False

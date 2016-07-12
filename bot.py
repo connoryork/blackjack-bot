@@ -1,12 +1,20 @@
 """
 Discord Blackjack Bot
 Created by Connor York (cxy1054@rit.edu)
+
+TERMS:
+ROUND = A decision, where each player decides what to do with their hand ONCE.
+GAME = All of the rounds, from the initial betting till each player cannot play anymore and either wins or loses.
+SESSION = All of the games. 'in session' means that there are currently players playing.
+
 """
 
+import dealer
 import user
 import discord
 import logging
 import time
+import card
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -20,7 +28,6 @@ class BlackJackBot(discord.Client):
     def __init__(self):
         super().__init__()
         self.in_session = False # tells if current game is in progress
-        self.in_intermission = False # tells if the add/remove players stage is in progress
         self.players = list()
         self.channel = None
 
@@ -38,11 +45,10 @@ class BlackJackBot(discord.Client):
             return
         if not self.in_session: # if there is no current game, game commands should not be accessible
             if message_content.startswith("!blackjack"): # start game command
-                await self.send_message(message.channel, "Blackjack game commencing. Type \"!join\" to join the match!")
+                await self.send_message(message.channel, "Blackjack game commencing. Type \"!join\" to join the table!")
                 self.in_session = True
-                self.in_intermission = True
                 self.channel = message.channel
-                await self.run_intermission()
+
                 # send message that the game is starting
                 # send message that users should type !join to join the game and !quit to leave the game
                 # load users based on who responded
@@ -52,9 +58,11 @@ class BlackJackBot(discord.Client):
                     # display users and their current bank, and what they lost or gained
                 # repeat from beginning, if there are no users currently playing, the game will end.
 
-    async def run_game(self):
+################################################################################################
+######################################### GAME METHODS #########################################
+################################################################################################
 
-        pass
+
         # give users time to bet
         # send message that a new hand is starting and show everyone playing and their cards, including the dealer
         # give users time to decide whether to hit or hold
@@ -62,36 +70,49 @@ class BlackJackBot(discord.Client):
         # display users and their cards, or if they are bust
         # repeat until all users are either holding or bust
 
-    def deal_cards(self):
-        for player in self.players:
-            player.deal()
+    async def run_session(self):
+        while self.still_playing_session():
+            await self.run_intermission()
+            await self.run_game()
+
+    async def run_game(self):
+        """
+        Runs the game, which is the time from after the bets have been placed, and the last player has finished
+        playing.
+        """
+        self.deal_cards()
+        await self.run_betting()
+        while self.still_playing_game(): # TODO maybe some print statements
+            self.run_round()
 
     async def run_betting(self):
         pass
 
-    async def run_play(self):
+    async def run_round(self):
         start_time = time.clock()
+        await self.send_message(self.channel, "Enter !hit or !hold")
         while time.clock() - start_time < self.playing_time:
 
             def msg_check(msg):
                 return msg.content.startswith("!hit") or msg.content.startswith("!hold")
 
-            play_msg = await self.wait_for_message(timeout=30, check=msg_check) if self.still_playing() else \
-                None
-            player = self.get_player(play_msg.author)
-            if player: # only cares about messages from players
-                if play_msg.content.startswith("!hit"):
-                    if player.hit():
-                        #print success message
-                        pass
-                elif play_msg.content.startswith("!hold"):
-                    if player.hold():
-                        #print success message
-                        pass
-
-    async def evaluate_players(self):
-        #evaulate players after they hit of held
-        pass
+            play_msg = await self.wait_for_message(timeout=30, check=msg_check) if self.still_deciding() else None
+            if play_msg:
+                player = self.get_player(play_msg.author)
+                if player:
+                    if play_msg.content.startswith("!hit"):
+                        if player.hit(): #success
+                            await self.send_message(self.channel, "{} hit!".format(player.mention_user()))
+                        else:
+                            await self.send_message(self.channel, "{} can not hit!".format(player.mention_user()))
+                    elif play_msg.content.startswith("!hold"):
+                        if player.hold(): #success
+                            await self.send_message(self.channel, "{} held their hand!".format(player.mention_user()))
+                        else:
+                            await self.send_message(self.channel, "{} cannot hold! They may have already played or "
+                                                                  "are not playing this round. ".format(player.mention_user()))
+        await self.force_hold()
+        self.evaluate_players()
 
     async def run_intermission(self):
         start_time = time.clock()
@@ -100,17 +121,52 @@ class BlackJackBot(discord.Client):
             if join_msg:
                 self.players.append(user.User(join_msg.author))
                 await self.send_message(self.channel, "{} joined!".format(join_msg.author.name))
-        self.players.append()
+        self.players.append(dealer.Dealer(client.user))
         await self.print_players()
 
-    async def shutdown(self):
-        await self.send_message(self.channel, "Bye!")
-        await self.logout()
+################################################################################################
+######################################## HELPER METHODS ########################################
+################################################################################################
 
-    def still_playing(self):
+    def deal_cards(self):
+        card.Card.create_deck()
+        for player in self.players:
+            player.deal()
+
+    async def evaluate_players(self):
+        # evaulate players after they hit of held
+        pass
+
+    async def force_hold(self):
+        for player in self.players:
+            if isinstance(player, user.User):
+                if not player.has_played:
+                    player.hold()
+                    await self.send_message(self.channel, "Forced {} to hold because they took too long to decide" \
+                                            .format(player.mention_user()))
+
+    def still_playing_session(self):
         """
-        Determines if the game is still in action, meaning that players still have not hit or held their hand.
-        :return:
+        Determines if there are still players playing blackjack
+        :return: True if there are still players playing, False otherwise
+        """
+        return len(self.players) != 0
+
+    def still_playing_game(self):
+        """
+        Determines if there are still players that are eligible to play in a round. This means that they are not
+        holding or busted.
+        :return: True if there are still eligible players, False if not
+        """
+        for player in self.players:
+            if player.is_playing:
+                return True
+        return False
+
+    def still_deciding(self):
+        """
+        Determines if the decision time is still in action, meaning that players still have not hit or held their hand.
+        :return: Whether or not there are players that have not decided what to do (hit or hold)
         """
         for player in self.players:
             if isinstance(player, user.User):
@@ -131,6 +187,10 @@ class BlackJackBot(discord.Client):
                 longest = len(player.name)
         return longest
 
+###############################################################################################
+######################################## PRINT METHODS ########################################
+###############################################################################################
+
     async def print_players(self): # in progress
         name_length = self.get_longest_player_name_length()
         top = "_"*(name_length*2 + 14) + "\n" # similar length of categories
@@ -145,6 +205,11 @@ class BlackJackBot(discord.Client):
                 message += "{:^{}} |{:^10}| {}\n".format("Dealer", name_length, "Infinite", hand)
         message += players_string
         await self.send_message(self.channel, message)
+
+
+    async def shutdown(self):
+        await self.send_message(self.channel, "Bye!")
+        await self.logout()
 
 async def send_message(content):
     """

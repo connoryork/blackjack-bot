@@ -25,7 +25,7 @@ class User(player.Player):
         if isinstance(bet, int):
             if bet > self.bank or bet < 1:
                 bot.send_message("Bet must be a positive integer that is divisible by 50 and less than the amount"
-                                 " in your bank.\n You ({}) currently have ${}.".format(self.name, self.bank)) #mention
+                                 " in your bank.\n You ({}) currently have ${}.".format(self.mention_user(), self.bank))
             elif bet % 50 != 0:
                 #send message that bet must be a factor of 50
                 pass
@@ -41,6 +41,11 @@ class User(player.Player):
         Resets the users bet to no bet (zero)
         """
         self.bet = 0
+
+    def mention_user(self):
+        if self.member.nick:
+            return '<@!{}>'.format(self.id)
+        return '<@{}>'.format(self.id)
 
 
 
