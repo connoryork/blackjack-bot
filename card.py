@@ -42,9 +42,9 @@ class Card:
         for suite in Card.SUITES:
             value = 1
             for card in Card.CARDS:
+                Card.deck.append(Card(value, suite, card))
                 if value < 10:
                     value += 1
-                Card.deck.append(Card(value, suite, card))
 
     @staticmethod
     def clear_deck():

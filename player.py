@@ -21,6 +21,13 @@ class Player:
         for _ in range(2):
             self.hand.append(card.Card.draw_card())
 
+    def hand_str(self):
+        hand_string = ""
+        for i in range(len(self.hand)):
+            hand_string += self.hand[i].__str__() + ", " if i < len(self.hand) - 1 else self.hand[i].__str__()
+        return hand_string
+
+
     def reset_hand(self):
         """
         Resets the players hand to an empty hand of no cards

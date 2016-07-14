@@ -30,6 +30,7 @@ class BlackJackBot(discord.Client):
         self.in_session = False # tells if current game is in progress
         self.players = list()
         self.channel = None
+        self.dealer = dealer.Dealer(self.user)
 
     async def on_message(self, message):
 
@@ -48,7 +49,7 @@ class BlackJackBot(discord.Client):
                 await self.send_message(message.channel, "Blackjack game commencing. Type \"!join\" to join the table!")
                 self.in_session = True
                 self.channel = message.channel
-
+                await self.run_session()
                 # send message that the game is starting
                 # send message that users should type !join to join the game and !quit to leave the game
                 # load users based on who responded
@@ -71,8 +72,11 @@ class BlackJackBot(discord.Client):
         # repeat until all users are either holding or bust
 
     async def run_session(self):
-        while self.still_playing_session():
+        game_counter = 0
+        while self.still_playing_session() or game_counter == 0:
+            await self.print_players()
             await self.run_intermission()
+            await self.print_players()
             await self.run_game()
 
     async def run_game(self):
@@ -82,8 +86,11 @@ class BlackJackBot(discord.Client):
         """
         self.deal_cards()
         await self.run_betting()
-        while self.still_playing_game(): # TODO maybe some print statements
-            self.run_round()
+        while self.still_playing_game():
+            await self.print_players()
+            await self.run_round()
+            await self.print_players()
+        self.reset_players()
 
     async def run_betting(self):
         pass
@@ -111,18 +118,22 @@ class BlackJackBot(discord.Client):
                         else:
                             await self.send_message(self.channel, "{} cannot hold! They may have already played or "
                                                                   "are not playing this round. ".format(player.mention_user()))
+            else:
+                break
+        await self.print_players()
         await self.force_hold()
-        self.evaluate_players()
+        await self.evaluate_players()
 
     async def run_intermission(self):
         start_time = time.clock()
+        join_list = list()
         while time.clock() - start_time < self.intermission_time:
             join_msg = await self.wait_for_message(timeout=10, content="!join")
             if join_msg:
-                self.players.append(user.User(join_msg.author))
-                await self.send_message(self.channel, "{} joined!".format(join_msg.author.name))
-        self.players.append(dealer.Dealer(client.user))
-        await self.print_players()
+                if join_msg.author not in join_list:
+                    join_list.append(join_msg.author)
+                    self.players.append(user.User(join_msg.author))
+                    await self.send_message(self.channel, "{} joined!".format(join_msg.author.name))
 
 ################################################################################################
 ######################################## HELPER METHODS ########################################
@@ -135,6 +146,9 @@ class BlackJackBot(discord.Client):
 
     async def evaluate_players(self):
         # evaulate players after they hit of held
+        pass
+
+    def reset_players(self): #TODO
         pass
 
     async def force_hold(self):
@@ -150,7 +164,7 @@ class BlackJackBot(discord.Client):
         Determines if there are still players playing blackjack
         :return: True if there are still players playing, False otherwise
         """
-        return len(self.players) != 0
+        return len(self.players) != 1 # the bot itself
 
     def still_playing_game(self):
         """
@@ -200,7 +214,8 @@ class BlackJackBot(discord.Client):
         for player in self.players:
             hand = player.hand#.join ##????????????????????
             if isinstance(player, user.User):
-                players_string += "{:^{}} |{:^10}| {}\n".format(player.name, name_length, '$'+str(player.bank), hand)
+                players_string += "{:^{}} |{:^10}| {}\n".format(player.name, name_length, '$'+str(player.bank),
+                                                                player.hand_str())
             else:
                 message += "{:^{}} |{:^10}| {}\n".format("Dealer", name_length, "Infinite", hand)
         message += players_string
