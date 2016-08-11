@@ -50,15 +50,27 @@ class Dealer(player.Player):
         super().__init__(member)
 
     def str_with_hand(self):
-        return "Dealer:\n" + self.hand_str()
+        """
+        Only shows the first card in the hand, like in a real blackjack game.
+        :return: str depicting the dealer and the first card in it's hand
+        """
+        return "Dealer:\n" + self.hand_str(1)
 
-    def hit(self):
+    def final_str_with_hand(self):
         """
-        Adds a card to the hand only if the hand has a possible value of 16 or less. Holds otherwise.
+        Shows all of the dealer's hand, for post game printing to players.
+        :return: str depicting the dealer and i's entire hand
         """
-        if self.is_playing and not self.has_played:
-            for value in self.get_hand_values():
-                if value <= 16:
-                    super().hit()
-                    return
-            self.hold()
+        return "Dealer's final hand:\n" + self.hand_str()
+
+    def hit_until_hold(self):
+        """
+        Keeps on adding cards to the hand until the lowest value of the hand is above 16, then holds.
+
+        This method assumes that the dealer has already been dealt cards, and is to be used after all players are done
+        playing.
+        """
+        while min(value for value in self.get_hand_values()) < 17:
+            self.hit()
+        self.hold()
+

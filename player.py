@@ -67,15 +67,17 @@ class Player:
         for _ in range(2):
             self.hand.append(card.Card.draw_card())
 
-    def hand_str(self):
+    def hand_str(self, num_cards=None):
         """
         Creates a string from the player's hand
+        :param num_cards: the number of cards in hand to print. If None, prints entire hand.
         :return: str of cards in hand
         """
         hand_string = ""
-        for i in range(len(self.hand)):
-            hand_string += "    " + self.hand[i].__str__() + "\n" if i < len(self.hand) - 1 \
-                else "    " + self.hand[i].__str__()
+        if not num_cards:
+            num_cards = len(self.hand)
+        for i in range(num_cards):
+            hand_string += "    " + self.hand[i].__str__() + "\n"
         return hand_string
 
 

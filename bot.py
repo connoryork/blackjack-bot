@@ -60,9 +60,10 @@ class BlackJackBot(discord.Client):
             The user that the client is connected to represented as a player in Blackjack
     """
 
-    INTERMISSION_TIME = 10
+    INTERMISSION_TIME = 15
     BETTING_TIME = 15
-    PLAYING_TIME = 30
+    PLAYING_TIME = 60
+    MESSAGE_GAP = 5
 
     def __init__(self):
         super().__init__()
@@ -86,6 +87,7 @@ class BlackJackBot(discord.Client):
         if not self.in_session: # if there is no current game, game commands should not be accessible
             if message_content.startswith("!blackjack"): # start game command
                 await self.send_message(message.channel, "Blackjack game commencing. Creating table.")
+                time.sleep(self.MESSAGE_GAP)
                 self.in_session = True
                 self.channel = message.channel
                 await self.run_session()
@@ -117,29 +119,40 @@ class BlackJackBot(discord.Client):
             await self.run_intermission()
             if self.still_playing_session():
                 await self.print_players_with_bank()
+                time.sleep(self.MESSAGE_GAP)
                 await self.run_game()
                 game_counter += 1
         self.reset_bot()
         await self.send_message(self.channel, "Session ending, destroying table. Thanks for playing!")
 
-    async def run_game(self): #TODO PRINT DEALER HAND AND DEAL DEALER CARDS
+    async def run_game(self):
         """
         Runs the game, which is the time from after the bets have been placed, and the last player has finished
         playing.
         """
-        self.deal_cards()
-        await self.print_players_with_hand()
         await self.run_betting()
         await self.print_players_with_bet()
+        time.sleep(self.MESSAGE_GAP)
+        await self.send_message(self.channel, "Retrieving a new deck, shuffling, and dealing cards! Please hold!")
+        self.deal_cards()
+        time.sleep(self.MESSAGE_GAP)
+        await self.print_players_with_hand()
+        time.sleep(self.MESSAGE_GAP)
         while self.still_playing_game():
             await self.run_round()
             self.ready_new_round_players()
-        await self.evaluate_round()
+        await self.send_message(self.channel, "There are no more players eligible to play, so the game is over!"
+                                              " Running post game evaluation to see who won!")
+        time.sleep(self.MESSAGE_GAP)
+        await self.evaluate_game()
+        time.sleep(self.MESSAGE_GAP)
+        await self.send_message(self.channel, "Resetting players for next game...")
+        time.sleep(self.MESSAGE_GAP)
         self.reset_players()
 
     async def run_betting(self):
         start_time = time.clock()
-        await self.send_message(self.channel, "Betting commencing. Enter '!bet #' with '#' replaced your bet! All "
+        await self.send_message(self.channel, "Betting commencing. Enter '!bet #' with '#' replaced with your bet! All "
                                               "bets must be greater than $50.")
         while time.clock() - start_time < self.BETTING_TIME:
 
@@ -180,7 +193,8 @@ class BlackJackBot(discord.Client):
             def msg_check(msg):
                 return msg.content.startswith("!hit") or msg.content.startswith("!hold")
 
-            play_msg = await self.wait_for_message(timeout=self.PLAYING_TIME, check=msg_check) if self.still_deciding() else None
+            play_msg = await self.wait_for_message(timeout=self.PLAYING_TIME, check=msg_check) if \
+                self.still_deciding() else None
             if play_msg:
                 player = self.get_player(play_msg.author)
                 if player:
@@ -197,13 +211,21 @@ class BlackJackBot(discord.Client):
                                                                   "are not playing this round. ".format(player.mention_user()))
             else:
                 break
-        await self.print_players_with_hand()
+        await self.send_message(self.channel, "Either all players played or the time is up! The round is now over. Preparing everyone for post round evaluation.")
+        time.sleep(self.MESSAGE_GAP)
         await self.force_hold()
-        self.evaluate_players()
+        #await self.send_message(self.channel, "Here comes the new hands!")
+        time.sleep(self.MESSAGE_GAP)
+        await self.print_players_with_hand()
+        time.sleep(self.MESSAGE_GAP)
+        await self.send_message(self.channel, "Running algorithms to evaluate players based on last round.")
+        time.sleep(self.MESSAGE_GAP)
+        await self.evaluate_players()
 
     async def run_intermission(self):
         start_time = time.clock()
-        await self.send_message(self.channel, "Intermission commencing. Type '!join' to join the table or '!quit' to leave!")
+        await self.send_message(self.channel, "Intermission commencing. Type '!join' to join the table or '!quit' to leave!"
+                                              " All new players start with $5000.")
         while time.clock() - start_time < self.INTERMISSION_TIME:
 
             def msg_check(msg):
@@ -228,45 +250,54 @@ class BlackJackBot(discord.Client):
 ################################################################################################
 
     def deal_cards(self):
+        """
+        Creates a new deck and deals 2 cards to every player, including the dealer.
+        """
         card.Card.create_deck()
+        self.dealer.deal()
         for player in self.players:
             player.deal()
 
-    def evaluate_players(self):
+    async def evaluate_players(self):
         #check each player to see if they have busted and update their variables
+        message = ""
         for player in self.players:
             if isinstance(player, user.User):
                 if player.is_playing and player.is_bust():
+                    message += "    " + player.mention_user()
                     player.bust()
+        if message:
+            await self.send_message(self.channel, "Busted players:\n\n" + message)
 
-    async def evaluate_round(self):
-        message = ""
+    async def evaluate_game(self):
+        self.dealer.hit_until_hold()
+        message = self.bold_message(self.dealer.final_str_with_hand()+ "\n")
         if self.dealer.has_blackjack():
             message += "The Dealer has Blackjack. All players without blackjack will lose the round.\n\n"
             for player in self.players:
                 if not player.has_blackjack():
-                    message += "    " + player.mention_user() + " lost " + self.bold_message(player.lose_bet())
+                    message += "    " + player.mention_user() + " lost " + self.bold_message("$" + str(player.lose_bet())) + "\n"
                 else:
-                    message += "    " + player.mention_user() + " had blackjack so they lost nothing."
+                    message += "    " + player.mention_user() + " also had blackjack so they gained/lost nothing.\n"
         elif self.dealer.is_bust():
             message += "The Dealer is busted. All players left in the game win.\n\n"
             for player in self.players:
                 if player.is_busted or player.is_bust():
-                    message += "    " + player.mention_user() + " lost " + self.bold_message(player.lose_bet())
+                    message += "    " + player.mention_user() + " lost " + self.bold_message("$" + str(player.lose_bet())) + "\n"
                 else:
-                    message += "    " + player.mention_user() + " won " + self.bold_message(player.gain_bet())
+                    message += "    " + player.mention_user() + " won " + self.bold_message("$" + str(player.gain_bet())) + "\n"
         else:
             # players with a higher point total win, players with a lower point total than dealer lose
             dealer_hand_value = min(i for i in self.dealer.get_hand_values())
-            message += "The Dealer has a hand value of {}. All players above this value win!".format(dealer_hand_value)
-            for player in self.players:
+            message += "The Dealer has a hand value of {}. All non-busted players above this value win!\n\n".format(dealer_hand_value)
+            for player in self.players: # TODO FIX LOGIC
                 player_hand_value = min(i for i in player.get_hand_values())
                 if not player.is_bust() and player_hand_value > dealer_hand_value:
-                    message += "    " + player.mention_user() + " won " + self.bold_message(player.gain_bet())
+                    message += "    " + player.mention_user() + " won " + self.bold_message("$" + str(player.gain_bet())) + "\n"
                 elif not player.is_bust() and player_hand_value == dealer_hand_value:
-                    message += "    " + player.mention_user() + " tied and lost nothing."
+                    message += "    " + player.mention_user() + " tied and gained/lost nothing.\n"
                 else:
-                    message += "    " + player.mention_user() + " lost " + self.bold_message(player.lose_bet())
+                    message += "    " + player.mention_user() + " lost " + self.bold_message("$" + str(player.lose_bet())) + "\n"
         await self.send_message(self.channel, message)
 
     def reset_bot(self):
@@ -291,7 +322,8 @@ class BlackJackBot(discord.Client):
                 if not player.has_played:
                     player.hold()
                     names += player.mention_user() + ","
-        await self.send_message(self.channel, "Forced {} to hold because they took too long to decide".format(names))
+        if names:
+            await self.send_message(self.channel, "Forced {} to hold because they took too long to decide last round.".format(names))
 
     def ready_new_round_players(self):
         """
@@ -351,24 +383,26 @@ class BlackJackBot(discord.Client):
 ###############################################################################################
 
     async def print_players_with_hand(self):
-        message = "Players and their hands\n\n"
+        message = "Players and their hands\n\n" + self.bold_message(self.dealer.str_with_hand()) + "\n"
         for player in self.players:
             if isinstance(player, user.User):
-                message += player.str_with_hand()
+                message += player.str_with_hand() + "\n"
         await self.send_message(self.channel, message)
 
     async def print_players_with_bet(self):
+        await self.send_message(self.channel, "Here comes everyone's bets for the round!")
+        time.sleep(self.MESSAGE_GAP)
         message = "Players and their bets\n\n"
         for player in self.players:
             if isinstance(player, user.User):
-                message += player.str_with_bet()
+                message += player.str_with_bet() + "\n"
         await self.send_message(self.channel, message)
 
     async def print_players_with_bank(self):
         message = "Players and their banks\n\n"
         for player in self.players:
             if isinstance(player, user.User):
-                message += player.str_with_bank()
+                message += player.str_with_bank() + "\n"
         await  self.send_message(self.channel, message)
 
     @staticmethod
@@ -378,14 +412,6 @@ class BlackJackBot(discord.Client):
     async def shutdown(self):
         await self.send_message(self.channel, "Bye!")
         await self.logout()
-
-async def send_message(content):
-    """
-    Function to send messages to the chat by outside objects that are not the bot itself
-    :param content: string content of message
-    """
-    await client.send_message(client.channel, content)
-
 
 token_file = open("token.txt", "r")
 token = token_file.readline().strip()

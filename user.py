@@ -58,7 +58,7 @@ class User(player.Player):
         return self.mention_user() + ":\n" + self.hand_str()
 
     def str_with_bet(self):
-        return self.mention_user() + ": " + str(self.current_bet)
+        return self.mention_user() + ": $" + str(self.current_bet)
 
     def str_with_bank(self):
         return self.mention_user() + " has $" + str(self.bank)
