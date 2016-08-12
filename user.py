@@ -58,10 +58,10 @@ class User(player.Player):
         return self.mention_user() + ":\n" + self.hand_str()
 
     def str_with_bet(self):
-        return self.mention_user() + ": $" + str(self.current_bet)
+        return "{0} bet {1} memes".format(self.mention_user(), str(self.current_bet))
 
     def str_with_bank(self):
-        return self.mention_user() + " has $" + str(self.bank)
+        return "{0} has {1} memes".format(self.mention_user(), str(self.bank))
 
     def bet(self, amount):
         """
@@ -101,4 +101,9 @@ class User(player.Player):
         self.bank -= self.current_bet
         return self.current_bet
 
-
+    def set_bank(self, new):
+        """
+        Sets the user's bank to the passed amount
+        :param new: int value of new bank
+        """
+        self.bank = new

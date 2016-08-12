@@ -54,7 +54,7 @@ class Dealer(player.Player):
         Only shows the first card in the hand, like in a real blackjack game.
         :return: str depicting the dealer and the first card in it's hand
         """
-        return "Dealer:\n" + self.hand_str(1)
+        return "Dealer: (only shows one card)\n" + self.hand_str(1)
 
     def final_str_with_hand(self):
         """

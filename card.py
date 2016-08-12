@@ -97,8 +97,9 @@ class Card:
         Draws a random Card from the deck.
         :return: Card object
         """
-        if len(Card.deck) != 0: # TODO WHAT happens when all 52 cards are used
-            return Card.deck.pop(randint(0, len(Card.deck) - 1))
+        if len(Card.deck) == 0:
+            Card.create_deck()
+        return Card.deck.pop(randint(0, len(Card.deck) - 1))
 
 
 def test():
