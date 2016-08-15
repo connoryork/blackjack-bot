@@ -23,6 +23,8 @@ there are some good guides online on how to do this.
 "Guide to creating a new bot account")
 2. Create a .txt file named `token.txt` in the same directory as the blackjack-bot files.
 3. Place the token into the first line of `token.txt`. This is important for logging into your bot.
+3. Add your bot to a server through [this](https://discordapp.com/oauth2/authorize?&client_id=198109393919803393&scope=bot&permissions=0
+"Add blackjack-bot to a server") link.
 4. Start your bot running the command prompt (or PowerShell) and typing `python bot.py` while in the
 blackjack-bot project directory (This can also be done in an IDE such as PyCharm).
 
@@ -35,4 +37,12 @@ play are in messages sent by the bot while playing.
 * [Discord](https://discordapp.com/ "Discord homepage") - text and voice client for game to take place
 * [discord.py](https://github.com/Rapptz/discord.py "discord Python API") - Python API wrapper for Discord written by
 Rapptz
+
+### TODO
+* Add some sort of storage of users between sessions, in order to preserve bank values.
+* Instead of printing the names of cards when printing player's hands, send an image of their hand.
+This would need to be small enough not to obstruct the chat and the format of the message (I wish
+there were card emojis or something like that).
+* Add splitting, insurance, surrendering, etc. This is honestly the least of my worries and
+probably will not happen.
 
