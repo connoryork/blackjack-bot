@@ -23,8 +23,8 @@ there are some good guides online on how to do this.
 "Guide to creating a new bot account")
 2. Create a .txt file named `token.txt` in the same directory as the blackjack-bot files.
 3. Place the token into the first line of `token.txt`. This is important for logging into your bot.
-3. Add your bot to a server through [this](https://discordapp.com/oauth2/authorize?&client_id=198109393919803393&scope=bot&permissions=0
-"Add blackjack-bot to a server") link.
+3. Add your bot to a server by adding your bot's client ID after `client_id=` in the link here.
+https://discordapp.com/oauth2/authorize?&client_id=&scope=bot&permissions=0
 4. Start your bot running the command prompt (or PowerShell) and typing `python bot.py` while in the
 blackjack-bot project directory (This can also be done in an IDE such as PyCharm).
 
