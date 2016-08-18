@@ -63,9 +63,9 @@ class BlackJackBot(discord.Client):
     """
 
     INTERMISSION_TIME = 20
-    BETTING_TIME = 25
+    BETTING_TIME = 50
     PLAYING_TIME = 120
-    MESSAGE_GAP = 5
+    MESSAGE_GAP = 10
 
     PREFIX = "$"
 
@@ -116,6 +116,8 @@ class BlackJackBot(discord.Client):
                 await self.print_players_with_bank()
                 time.sleep(self.MESSAGE_GAP)
                 await self.run_game()
+                for player in self.players: # updates database every round
+                    self.write_user(player)
             game_counter += 1
         await self.send_message(self.channel, "Session ending, destroying table. Thanks for playing!")
         self.reset_bot()
@@ -126,12 +128,13 @@ class BlackJackBot(discord.Client):
         playing.
         """
         await self.run_betting()
+        self.force_bet()
         await self.print_players_with_bet()
         time.sleep(self.MESSAGE_GAP)
         cards_msg = await self.send_message(self.channel, "Retrieving a new deck, shuffling, and dealing cards! Please hold!")
         self.deal_cards()
         time.sleep(self.MESSAGE_GAP)
-        await self.edit_message(cards_msg, self.str_players_with_hand())
+        await self.edit_message(cards_msg, cards_msg.content + "\n\n" + self.str_players_with_hand())
         time.sleep(self.MESSAGE_GAP)
         while self.still_playing_game():
             await self.run_round()
@@ -168,7 +171,7 @@ class BlackJackBot(discord.Client):
                                     confirm_msg = await self.send_message(self.channel, "{} bet {} memes!".format(player.mention_user(),
                                                                                            player.current_bet))
                                 else:
-                                    await self.edit_message(confirm_msg, "{} bet {} memes!".format(player.mention_user(), player.current_bet))
+                                    await self.edit_message(confirm_msg, confirm_msg.content + "\n\n" + "{} bet {} memes!".format(player.mention_user(), player.current_bet))
                             else:
                                 if not confirm_msg:
                                     confirm_msg = await self.send_message(self.channel,
@@ -176,7 +179,7 @@ class BlackJackBot(discord.Client):
                                                         " in your bank.\n You ({}) currently have {} memes.".format(
                                                             player.mention_user(), player.bank))
                                 else:
-                                    await self.edit_message(confirm_msg,
+                                    await self.edit_message(confirm_msg, confirm_msg.content + "\n\n" +
                                                         "Bet must be a positive integer between 100 and 500 memes that is less than the amount"
                                                         " in your bank.\n You ({}) currently have {} memes.".format(
                                                             player.mention_user(), player.bank))
@@ -187,7 +190,7 @@ class BlackJackBot(discord.Client):
                                                     " in your bank.\n You ({}) currently have {} memes.".format(
                                                         player.mention_user(), player.bank))
                             else:
-                                await self.edit_message(confirm_msg,
+                                await self.edit_message(confirm_msg, confirm_msg.content + "\n\n" +
                                                     "Bet must be a positive integer between 100 and 500 memes that is less than the amount"
                                                     " in your bank.\n You ({}) currently have {} memes.".format(
                                                         player.mention_user(), player.bank))
@@ -223,17 +226,17 @@ class BlackJackBot(discord.Client):
         time.sleep(self.MESSAGE_GAP)
         forced_players = self.force_hold()
         if forced_players:
-            await self.edit_message(end_message, forced_players)
+            end_message = await self.edit_message(end_message, end_message.content + "\n\n" + forced_players)
             time.sleep(self.MESSAGE_GAP)
-        await self.edit_message(end_message, "Here comes the new hands!")
+        await self.edit_message(end_message, end_message.content + "\n\n" + "Here comes the new hands!")
         time.sleep(self.MESSAGE_GAP)
-        await self.edit_message(end_message, self.str_players_with_hand())
+        await self.edit_message(end_message, end_message.content + "\n\n" + self.str_players_with_hand())
         time.sleep(self.MESSAGE_GAP)
         eval_message = await self.send_message(self.channel, "Running algorithms to evaluate players based on last round.")
         time.sleep(self.MESSAGE_GAP)
         busted = self.evaluate_players()
         if busted:
-            await self.edit_message(eval_message, busted)
+            await self.edit_message(eval_message, eval_message.content + "\n\n" + busted)
 
     async def run_intermission(self):
         start_time = time.clock()
@@ -255,7 +258,7 @@ class BlackJackBot(discord.Client):
                         if not confirm_msg:
                             confirm_msg = await self.send_message(self.channel, "{} joined!".format(self.get_player(join_msg.author).mention_user()))
                         else:
-                            await self.edit_message(confirm_msg, "{} joined!".format(self.get_player(join_msg.author).mention_user()))
+                            await self.edit_message(confirm_msg, confirm_msg.content + "\n\n" + "{} joined!".format(self.get_player(join_msg.author).mention_user()))
                         self.load_user(self.get_player(join_msg.author))
                 elif join_msg.content.startswith(self.PREFIX + "quit"):
                     player = self.get_player(join_msg.author)
@@ -264,7 +267,7 @@ class BlackJackBot(discord.Client):
                         if not confirm_msg:
                             confirm_msg = await self.send_message(self.channel, "{} quit!".format(player.mention_user()))
                         else:
-                            await self.edit_message(confirm_msg, "{} quit!".format(player.mention_user()))
+                            await self.edit_message(confirm_msg, confirm_msg.content + "\n\n" + "{} quit!".format(player.mention_user()))
                         self.write_user(player)
         self.sqlite_conn.commit()
 
@@ -448,7 +451,7 @@ class BlackJackBot(discord.Client):
         for player in self.players:
             if isinstance(player, user.User):
                 message += player.str_with_bet() + "\n"
-        await self.edit_message(bet_msg, message)
+        await self.edit_message(bet_msg, bet_msg.content + "\n\n" + message)
 
     async def print_players_with_bank(self):
         message = "Players and their banks\n\n"
