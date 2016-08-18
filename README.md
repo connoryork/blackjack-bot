@@ -39,7 +39,6 @@ play are in messages sent by the bot while playing.
 Rapptz
 
 ### TODO
-* Add some sort of storage of users between sessions, in order to preserve bank values.
 * Instead of printing the names of cards when printing player's hands, send an image of their hand.
 This would need to be small enough not to obstruct the chat and the format of the message (I wish
 there were card emojis or something like that).

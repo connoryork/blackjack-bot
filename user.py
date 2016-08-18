@@ -70,7 +70,7 @@ class User(player.Player):
         :return bool stating if the bet was valid or not
         """
         if isinstance(amount, int):
-            if amount > self.bank or amount < 50:
+            if amount > self.bank or amount < 100 or amount > 500:
                 return False
             else:
                 self.current_bet = amount

@@ -35,6 +35,8 @@ import discord
 import logging
 import time
 import card
+import sqlite3
+import os.path
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -60,9 +62,9 @@ class BlackJackBot(discord.Client):
             The user that the client is connected to represented as a player in Blackjack
     """
 
-    INTERMISSION_TIME = 15
-    BETTING_TIME = 15
-    PLAYING_TIME = 60
+    INTERMISSION_TIME = 20
+    BETTING_TIME = 25
+    PLAYING_TIME = 120
     MESSAGE_GAP = 5
 
     PREFIX = "$"
@@ -73,11 +75,18 @@ class BlackJackBot(discord.Client):
         self.players = list()
         self.channel = None
         self.dealer = _dealer.Dealer(self.user)
+        if not os.path.isfile("users.db"):
+            file = open("users.db", 'a')
+            file.close()
+            self.sqlite_conn = sqlite3.connect("users.db")
+            self.conn_cursor = self.sqlite_conn.cursor()
+            self.conn_cursor.execute('''CREATE TABLE users (id text, bank integer)''')
+        else:
+            self.sqlite_conn = sqlite3.connect("users.db")
+            self.conn_cursor = self.sqlite_conn.cursor()
+
 
     async def on_message(self, message):
-
-        if isinstance(message, discord.Message): # temporary for message access
-            pass
 
         await self.wait_until_ready()
         message_content = message.content.strip()
@@ -92,26 +101,10 @@ class BlackJackBot(discord.Client):
                 self.channel = message.channel
                 await self.run_session()
                 self.in_session = False
-                # send message that the game is starting
-                # send message that users should type !join to join the game and !quit to leave the game
-                # load users based on who responded
-                # display who is in the game
-                # start game
-                # display end game
-                    # display users and their current bank, and what they lost or gained
-                # repeat from beginning, if there are no users currently playing, the game will end.
 
 ################################################################################################
 ######################################### GAME METHODS #########################################
 ################################################################################################
-
-
-        # give users time to bet
-        # send message that a new hand is starting and show everyone playing and their cards, including the dealer
-        # give users time to decide whether to hit or hold
-        # react based on what users typed in
-        # display users and their cards, or if they are bust
-        # repeat until all users are either holding or bust
 
     async def run_session(self):
         await self.send_message(self.channel, "Blackjack game commencing. Creating table.")
@@ -123,7 +116,7 @@ class BlackJackBot(discord.Client):
                 await self.print_players_with_bank()
                 time.sleep(self.MESSAGE_GAP)
                 await self.run_game()
-                game_counter += 1
+            game_counter += 1
         await self.send_message(self.channel, "Session ending, destroying table. Thanks for playing!")
         self.reset_bot()
 
@@ -143,10 +136,8 @@ class BlackJackBot(discord.Client):
         while self.still_playing_game():
             await self.run_round()
             self.ready_new_round_players()
-        end_msg = await self.send_message(self.channel, "There are no more players eligible to play, so the game is over!"
-                                              " Running post game evaluation to see who won!")
-        time.sleep(self.MESSAGE_GAP)
-        await self.edit_message(end_msg, self.evaluate_game())
+        await self.send_message(self.channel, "There are no more players eligible to play, so the game is over!"
+                                              " Here evaluation to see who won!\n" + self.evaluate_game())
         time.sleep(self.MESSAGE_GAP)
         await self.send_message(self.channel, "Resetting players for next game...")
         time.sleep(self.MESSAGE_GAP)
@@ -155,7 +146,7 @@ class BlackJackBot(discord.Client):
     async def run_betting(self):
         start_time = time.clock()
         await self.send_message(self.channel, "Betting commencing. Enter '{}bet #' with '#' replaced with your bet! All "
-                                              "bets must be greater than or equal to 50 memes.".format(self.PREFIX))
+                                              "bets must be between 100 and 500 memes.".format(self.PREFIX))
         confirm_msg = None
         while time.clock() - start_time < self.BETTING_TIME:
 
@@ -181,23 +172,23 @@ class BlackJackBot(discord.Client):
                             else:
                                 if not confirm_msg:
                                     confirm_msg = await self.send_message(self.channel,
-                                                        "Bet must be a positive integer greater than or equal to 50 that is less than the amount"
+                                                        "Bet must be a positive integer between 100 and 500 memes that is less than the amount"
                                                         " in your bank.\n You ({}) currently have {} memes.".format(
                                                             player.mention_user(), player.bank))
                                 else:
                                     await self.edit_message(confirm_msg,
-                                                        "Bet must be a positive integer greater than or equal to 50 that is less than the amount"
+                                                        "Bet must be a positive integer between 100 and 500 memes that is less than the amount"
                                                         " in your bank.\n You ({}) currently have {} memes.".format(
                                                             player.mention_user(), player.bank))
                         else:
                             if not confirm_msg:
                                 confirm_msg = await self.send_message(self.channel,
-                                                    "Bet must be a positive integer greater than or equal to 50 that is less than the amount"
+                                                    "Bet must be a positive integer between 100 and 500 memes that is less than the amount"
                                                     " in your bank.\n You ({}) currently have {} memes.".format(
                                                         player.mention_user(), player.bank))
                             else:
                                 await self.edit_message(confirm_msg,
-                                                    "Bet must be a positive integer greater than or equal to 50 that is less than the amount"
+                                                    "Bet must be a positive integer between 100 and 500 memes that is less than the amount"
                                                     " in your bank.\n You ({}) currently have {} memes.".format(
                                                         player.mention_user(), player.bank))
 
@@ -265,6 +256,7 @@ class BlackJackBot(discord.Client):
                             confirm_msg = await self.send_message(self.channel, "{} joined!".format(self.get_player(join_msg.author).mention_user()))
                         else:
                             await self.edit_message(confirm_msg, "{} joined!".format(self.get_player(join_msg.author).mention_user()))
+                        self.load_user(self.get_player(join_msg.author))
                 elif join_msg.content.startswith(self.PREFIX + "quit"):
                     player = self.get_player(join_msg.author)
                     if player:
@@ -273,6 +265,8 @@ class BlackJackBot(discord.Client):
                             confirm_msg = await self.send_message(self.channel, "{} quit!".format(player.mention_user()))
                         else:
                             await self.edit_message(confirm_msg, "{} quit!".format(player.mention_user()))
+                        self.write_user(player)
+        self.sqlite_conn.commit()
 
 ################################################################################################
 ######################################## HELPER METHODS ########################################
@@ -352,8 +346,8 @@ class BlackJackBot(discord.Client):
         self.dealer.reset()
         for player in self.players:
             player.reset()
-            if player.bank > 50:
-                player.set_bank(100)
+            if player.bank <= 500:
+                player.set_bank(1000)
 
     def force_hold(self):
         """
@@ -368,6 +362,15 @@ class BlackJackBot(discord.Client):
                     names += player.mention_user() + ","
         if names:
             return "Forced {} to hold because they took too long to decide last round.".format(names)
+
+    def force_bet(self):
+        names = ""
+        for player in self.players:
+            if player.current_bet == 0:
+                player.bet(100)
+                names += player.mention_user() + ","
+        if names:
+            return "Forced {} to bet because they took too long to bet.".format(names)
 
     def ready_new_round_players(self):
         """
@@ -453,6 +456,31 @@ class BlackJackBot(discord.Client):
             if isinstance(player, user.User):
                 message += player.str_with_bank() + "\n"
         await  self.send_message(self.channel, message)
+
+###############################################################################################
+###################################### DATABASE METHODS #######################################
+###############################################################################################
+
+    def write_user(self, _user):
+        """
+        Updates the user's bank value to it's current value
+        :param _user: 'User' class object to update bank value of
+        """
+        try:
+            self.conn_cursor.execute("INSERT INTO users (id,bank) VALUES (?, ?)", (_user.id, _user.bank))
+        except sqlite3.IntegrityError:
+            pass
+        self.conn_cursor.execute("UPDATE users SET bank=? WHERE id=?", (_user.bank, _user.id ))
+
+    def load_user(self, _user):
+        """
+        If the user is in the database, loads the bank value from the database as the user's current bank
+        :param _user: 'User' class object to update bank value of
+        """
+        self.conn_cursor.execute("SELECT bank FROM users WHERE id=?", (_user.id,))
+        data = self.conn_cursor.fetchone()
+        if data:
+            _user.set_bank(int(data[0]))
 
     @staticmethod
     def bold_message(message):
