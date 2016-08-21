@@ -45,3 +45,7 @@ there were card emojis or something like that).
 * Add splitting, insurance, surrendering, etc. This is honestly the least of my worries and
 probably will not happen.
 
+### BUGS
+Currently, blackjack-bot has problems with large numbers of people sending messages at the same time.
+A request from Discord comes back as None, and the program stops. Sometimes an error occurs with async and
+some Task is destroyed prematurely. Not sure of a fix yet.
